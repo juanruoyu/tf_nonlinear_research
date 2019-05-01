@@ -5,9 +5,9 @@ import tensorflow as tf
 
 from model import Model
 from dataset import Dataset
-from common import config
+from config import config
 
-def get_dataset_batch(ds_name):
+def batch_generator(ds_name):
     dataset = Dataset(ds_name)
     ds_gnr = dataset.load().instance_generator
     ds = tf.data.Dataset.from_generator(ds_gnr, output_types=(tf.float32, tf.int32),)
@@ -30,8 +30,8 @@ def main():
     assert args.loss in ['softmax', 'abs-max', 'square-max', 'plus-one-abs-max', 'non-negative-max']
 
     ## load dataset
-    train_batch_gnr, train_set = get_dataset_batch(ds_name='train')
-    test_batch_gnr, test_set = get_dataset_batch(ds_name='test')
+    train_batch_gnr, train_set = batch_generator(ds_name='train')
+    test_batch_gnr, test_set = batch_generator(ds_name='test')
 
     ## build graph
     network = Model()
