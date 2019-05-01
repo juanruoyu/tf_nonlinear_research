@@ -1,26 +1,14 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# =======================================
-# File Name : dataset.py
-# Purpose : generate samples for train and test
-# Creation Date : 2019-02-19 10:35
-# Last Modified :
-# Created By : sunpeiqin
-# =======================================
-
 import os
 import cv2
 import numpy as np
 from scipy import io as scio
-
-from common import config
+from config import config
 
 class Dataset():
-    #dataset_path = '../../dataset/SVHN'
-    dataset_path = '/root/dataset/SVHN'
-
-
     def __init__(self, dataset_name):
+        'init the config and some hyperparameter for network'
+        self.dataset_path = config.dataset_path
         self.minibatch_size = config.minibatch_size
         self.ds_name = dataset_name
         if config.use_extra_data:
@@ -36,6 +24,7 @@ class Dataset():
         self.files, self.instances = dataset_meta[dataset_name]
 
     def load(self):
+        '''load your dataset and transform to mat for tensorflow format tensor'''
         datas_list, labels_list = [], []
         for f in self.files:
             samples = scio.loadmat(f)
@@ -47,6 +36,7 @@ class Dataset():
             'X': datas,
             'Y': labels,
         }
+        from IPython import embed;embed()
         return self
 
     @property

@@ -1,16 +1,10 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# =======================================
-# File Name : common.py
-# Purpose : configure the settings of 01-svhn
-# Creation Date : 2019-02-19 10:30
-# Last Modified :
-# Created By : sunpeiqin
-# =======================================
-
 import os
 
 class Config:
+    '''dataset path of you download dataset'''
+    dataset_path = './dataset/svhn'
+   
     '''where to write all the logging information during training(includes saved models)'''
     log_dir = './train_log'
 

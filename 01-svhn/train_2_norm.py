@@ -58,8 +58,10 @@ def main():
                             tf.cast(tf.argmax(label_onehot, 1), dtype=tf.int32))
     accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
     loss_reg = tf.add_n(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
-    loss = tf.losses.softmax_cross_entropy(label_onehot, logits) + loss_reg
-
+    #loss = tf.losses.softmax_cross_entropy(label_onehot, logits) + loss_reg
+    ##changing loss from softmax loss to 2 norm euclidean loss
+    label_onehot=tf.cast(label_onehot,tf.float32)
+    loss = tf.norm(tf.subtract(label_onehot,logits),ord='euclidean',axis=None,keepdims=None,name=None,keep_dims=None)+loss_reg 
     ## train config
     global_steps = tf.Variable(0, trainable=False)
     boundaries = [train_set.minibatchs_per_epoch*15, train_set.minibatchs_per_epoch*40]
@@ -79,9 +81,9 @@ def main():
     tf.summary.scalar('accuracy', accuracy)
     tf.summary.scalar('learning_rate', lr)
     merged = tf.summary.merge_all()
-    train_writer = tf.summary.FileWriter(os.path.join(config.log_dir, 'tf_log', 'train'),
+    train_writer = tf.summary.FileWriter(os.path.join(config.log_dir, 'tf_log', 'train_n2'),
                                          tf.get_default_graph())
-    test_writer = tf.summary.FileWriter(os.path.join(config.log_dir, 'tf_log', 'test'),
+    test_writer = tf.summary.FileWriter(os.path.join(config.log_dir, 'tf_log', 'test_n2'),
                                         tf.get_default_graph())
 
     ## create a session
@@ -147,7 +149,7 @@ def main():
 
             ## save model
             if epoch % config.snapshot_interval == 0:
-                saver.save(sess, os.path.join(config.log_model_dir, 'epoch-{}'.format(epoch)),
+                saver.save(sess, os.path.join(config.log_model_dir, 'n2/','epoch-{}'.format(epoch)),
                            global_step=global_cnt)
 
         print('Training is done, exit.')
