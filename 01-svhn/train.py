@@ -5,7 +5,7 @@ import tensorflow as tf
 
 from model import Model
 from dataset import Dataset
-from common import config
+from config import config
 
 def get_dataset_batch(ds_name):
     dataset = Dataset(ds_name)

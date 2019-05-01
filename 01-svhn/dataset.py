@@ -36,7 +36,6 @@ class Dataset():
             'X': datas,
             'Y': labels,
         }
-        from IPython import embed;embed()
         return self
 
     @property
