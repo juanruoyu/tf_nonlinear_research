@@ -2,7 +2,7 @@
 import os
 import argparse
 import tensorflow as tf
-
+import sys
 from model import Model
 from dataset import Dataset
 from config import config
@@ -90,6 +90,8 @@ def main():
     epoch_start = 0
     g_list = tf.global_variables()
     saver = tf.train.Saver(var_list=g_list)
+
+    fd = open(os.path.join(config.log_dir, 'worklog.txt'), 'a+')
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer()) # init all variables
         if args.continue_path: # load a model snapshot
@@ -114,14 +116,16 @@ def main():
                                                                        feed_dict=feed_dict)
                 if global_cnt % config.show_interval == 0:
                     train_writer.add_summary(summary, global_cnt)
-                    print(
-                        "e:{},{}/{}".format(epoch, global_cnt % train_set.minibatchs_per_epoch,
+                    ## save the log
+                    for f in[sys.stderr, fd]:
+                        print(
+                            "e:{},{}/{}".format(epoch, global_cnt % train_set.minibatchs_per_epoch,
                                             train_set.minibatchs_per_epoch),
-                        'loss: {:.3f}'.format(loss_v),
-                        'loss_reg: {:.3f}'.format(loss_reg_v),
-                        'acc: {:.3f}'.format(acc_v),
-                        'lr: {:.3f}'.format(lr_v),
-                    )
+                            'loss: {:.3f}'.format(loss_v),
+                            'loss_reg: {:.3f}'.format(loss_reg_v),
+                            'acc: {:.3f}'.format(acc_v),
+                            'lr: {:.3f}'.format(lr_v),
+                            file=f)
 
             ## validation
             if epoch % config.test_interval == 0:
@@ -140,10 +144,12 @@ def main():
                     loss_sum += loss_v
                     acc_sum += acc_v
                 test_writer.add_summary(summary, global_cnt)
-                print("\n**************Validation results****************")
-                print('loss_avg: {:.3f}'.format(loss_sum/test_set.minibatchs_per_epoch),
-                      'accuracy_avg: {:.3f}'.format(acc_sum/test_set.minibatchs_per_epoch))
-                print("************************************************\n")
+
+                for f in[sys.stderr, fd]:
+                    print("\n**************Test results****************", file=test_f)
+                    print('loss_avg: {:.3f}'.format(loss_sum/test_set.minibatchs_per_epoch),
+                          'accuracy_avg: {:.3f}'.format(acc_sum/test_set.minibatchs_per_epoch), file=fd)
+                    print("************************************************\n")
 
             ## save model
             if epoch % config.snapshot_interval == 0:
