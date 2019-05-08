@@ -2,11 +2,11 @@
 import os
 import argparse
 import tensorflow as tf
-import sys
+
 from model import Model
 from dataset import Dataset
 from config import config
-
+from regularizer import lp_regularizer
 def batch_generator(ds_name):
     dataset = Dataset(ds_name)
     ds_gnr = dataset.load().instance_generator
@@ -16,7 +16,7 @@ def batch_generator(ds_name):
         ds = ds.repeat(config.nr_epoch)
     elif ds_name == 'test':
         ds = ds.repeat(config.nr_epoch // config.test_interval)
-    ds = ds.batch(config.minibatch_size)
+    ds = ds.batch(config.minibatch_size, drop_remainder=True)
     ds_iter = ds.make_one_shot_iterator()
     sample_gnr = ds_iter.get_next()
     return sample_gnr, dataset
@@ -57,7 +57,8 @@ def main():
     correct_pred = tf.equal(tf.cast(tf.argmax(preds, 1), dtype=tf.int32),
                             tf.cast(tf.argmax(label_onehot, 1), dtype=tf.int32))
     accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
-    loss_reg = tf.add_n(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
+    loss_reg = lp_regularizer(tf.GraphKeys.WEIGHTS,p=3)
+    loss_reg = tf.cast(loss_reg,tf.float32)
     loss = tf.losses.softmax_cross_entropy(label_onehot, logits) + loss_reg
 
     ## train config
@@ -79,9 +80,9 @@ def main():
     tf.summary.scalar('accuracy', accuracy)
     tf.summary.scalar('learning_rate', lr)
     merged = tf.summary.merge_all()
-    train_writer = tf.summary.FileWriter(os.path.join(config.log_dir, 'tf_log', 'train'),
+    train_writer = tf.summary.FileWriter(os.path.join(config.log_dir, 'tf_log', 'train_lp'),
                                          tf.get_default_graph())
-    test_writer = tf.summary.FileWriter(os.path.join(config.log_dir, 'tf_log', 'test'),
+    test_writer = tf.summary.FileWriter(os.path.join(config.log_dir, 'tf_log', 'test_lp'),
                                         tf.get_default_graph())
 
     ## create a session
@@ -90,8 +91,6 @@ def main():
     epoch_start = 0
     g_list = tf.global_variables()
     saver = tf.train.Saver(var_list=g_list)
-
-    fd = open(os.path.join(config.log_dir, 'worklog.txt'), 'a+')
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer()) # init all variables
         if args.continue_path: # load a model snapshot
@@ -116,17 +115,15 @@ def main():
                                                                        feed_dict=feed_dict)
                 if global_cnt % config.show_interval == 0:
                     train_writer.add_summary(summary, global_cnt)
-                    ## save the log
-                    for f in[sys.stderr, fd]:
-                        print(
-                            "e:{},{}/{}".format(epoch, global_cnt % train_set.minibatchs_per_epoch,
+                    print(
+                        "e:{},{}/{}".format(epoch, global_cnt % train_set.minibatchs_per_epoch,
                                             train_set.minibatchs_per_epoch),
-                            'loss: {:.3f}'.format(loss_v),
-                            'loss_reg: {:.3f}'.format(loss_reg_v),
-                            'acc: {:.3f}'.format(acc_v),
-                            'lr: {:.3f}'.format(lr_v),
-                            file=f)
-                        f.flush()
+                        'loss: {:.3f}'.format(loss_v),
+                        'loss_reg: {:.3f}'.format(loss_reg_v),
+                        'acc: {:.3f}'.format(acc_v),
+                        'lr: {:.3f}'.format(lr_v),
+                    )
+
             ## validation
             if epoch % config.test_interval == 0:
                 loss_sum = 0
@@ -144,16 +141,14 @@ def main():
                     loss_sum += loss_v
                     acc_sum += acc_v
                 test_writer.add_summary(summary, global_cnt)
+                print("\n**************Validation results****************")
+                print('loss_avg: {:.3f}'.format(loss_sum/test_set.minibatchs_per_epoch),
+                      'accuracy_avg: {:.3f}'.format(acc_sum/test_set.minibatchs_per_epoch))
+                print("************************************************\n")
 
-                for f in[sys.stderr, fd]:
-                    print("\n**************Test results****************", file=f)
-                    print('loss_avg: {:.3f}'.format(loss_sum/test_set.minibatchs_per_epoch),
-                          'accuracy_avg: {:.3f}'.format(acc_sum/test_set.minibatchs_per_epoch), file=f)
-                    print("************************************************\n", file=f)
-                    f.flush()
             ## save model
             if epoch % config.snapshot_interval == 0:
-                saver.save(sess, os.path.join(config.log_model_dir, 'epoch-{}'.format(epoch)),
+                saver.save(sess, os.path.join(config.log_model_dir, 'lp/','epoch-{}'.format(epoch)),
                            global_step=global_cnt)
 
         print('Training is done, exit.')

@@ -1,18 +1,44 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import time
 import tensorflow as tf
 import tensorflow.contrib as tf_contrib
 from config import config
+from dataset import Dataset
+from IPython import embed
+import argparse
+
 
 
 class Model():
-    def __init__(self):
+    def __init__(self, loss='softmax'):
         # set the initializer of conv_weight and conv_bias
         self.weight_init = tf_contrib.layers.variance_scaling_initializer(factor=1.0,
                                 mode='FAN_IN', uniform=False)
         self.bias_init = tf.zeros_initializer()
         self.reg = tf_contrib.layers.l2_regularizer(config.weight_decay)
+        self.placeholder, self.label_onehot, self.logits = self.build()
+
+        if loss == 'softmax':
+            self.predict = tf.nn.softmax(self.logits)
+        elif loss == 'abs-max':
+            abs_logits = tf.abs(self.logits)
+            self.predict = abs_logits / tf.reduce_sum(abs_logits, axis=1, keepdims=True)
+        elif loss == 'square-max':
+            square_logits = self.logits * self.logits
+            self.predict = square_logits / tf.reduce_sum(square_logits, axis=1, keepdims=True)
+        elif loss == 'plus-one-abs-max':
+            plus_one_abs_logits = tf.abs(self.logits) + 1.0
+            self.predict = plus_one_abs_logits / tf.reduce_sum(plus_one_abs_logits, axis=1, keepdims=True)
+        elif loss == 'non-negative-max':
+            relu_logits = tf.nn.relu(self.logits)
+            self.predict = relu_logits / tf.reduce_sum(relu_logits, axis=1, keepdims=True)
+        else:
+            raise("Invalid loss type")
+
+        self.saver = tf.train.Saver()
+        self.path = "train_log/models/epoch-52-10140"
 
     def _conv_layer(self, name, inp, kernel_shape, stride, padding='SAME',is_training=False):
         with tf.variable_scope(name) as scope:
@@ -83,13 +109,6 @@ class Model():
                              stride=1, is_training=is_training)
         x = self._pool_layer(name='pool3', inp=x, ksize=2, stride=2, mode='MAX') # Nx4x4x64
 
-        # conv4
-        x = self._conv_layer(name='conv41', inp=x, kernel_shape=[3, 3, 64, 128],
-                             stride=1, is_training=is_training)
-        x = self._conv_layer(name='conv42', inp=x, kernel_shape=[3, 3, 128, 128],
-                             stride=1, is_training=is_training)
-        x = self._pool_layer(name='pool4', inp=x, ksize=4, stride=4, mode='AVG') # Nx1x1x128
-
         # fc1
         logits = self._fc_layer(name='fc1', inp=x, units=config.nr_class, dropout=0)
 
@@ -99,3 +118,40 @@ class Model():
             'is_training': is_training,
         }
         return placeholders, label_onehot, logits
+
+    def start_session(self):
+        self.sess = tf.Session()
+
+    def load_from_checkpoint(self):
+        self.saver.restore(self.sess, self.path)
+
+    def get_prediction(self, data):
+        return self.sess.run(self.predict, feed_dict={self.placeholder['data']:data, self.placeholder['is_training']: False})
+
+    def close_session(self):
+        self.sess.close()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-l', '--loss', default='softmax')
+    args = parser.parse_args()
+    assert args.loss in ['softmax', 'abs-max', 'square-max', 'plus-one-abs-max', 'non-negative-max']
+
+    teacher_network = Model(args.loss)
+    teacher_network.start_session()
+    teacher_network.load_from_checkpoint()
+
+    ds = Dataset('train')
+    ds = ds.load()
+    gen = ds.instance_generator()
+
+    images = []
+    t = 0
+    for i in range(100):
+        img, label = next(gen)
+        start = time.time()
+        target_labels = teacher_network.get_prediction([img])
+        dur = (time.time() - start)
+        t += dur
+    print('| light nn |', args.loss, '|', round(dur / 100 * 1000, 5), '| ms')

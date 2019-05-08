@@ -83,13 +83,6 @@ class Model():
                              stride=1, is_training=is_training)
         x = self._pool_layer(name='pool3', inp=x, ksize=2, stride=2, mode='MAX') # Nx4x4x64
 
-        # conv4
-        x = self._conv_layer(name='conv41', inp=x, kernel_shape=[3, 3, 64, 128],
-                             stride=1, is_training=is_training)
-        x = self._conv_layer(name='conv42', inp=x, kernel_shape=[3, 3, 128, 128],
-                             stride=1, is_training=is_training)
-        x = self._pool_layer(name='pool4', inp=x, ksize=4, stride=4, mode='AVG') # Nx1x1x128
-
         # fc1
         logits = self._fc_layer(name='fc1', inp=x, units=config.nr_class, dropout=0)
 
