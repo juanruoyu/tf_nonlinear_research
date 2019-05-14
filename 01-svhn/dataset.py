@@ -32,6 +32,7 @@ class Dataset():
             labels_list.append(samples['y'])
         datas = np.concatenate(datas_list, axis=3)
         labels = np.concatenate(labels_list, axis=0)
+        print('len', labels.shape)
         self.samples_mat = {
             'X': datas,
             'Y': labels,
@@ -47,6 +48,7 @@ class Dataset():
         return self.instances // config.minibatch_size
 
     def instance_generator(self):
+        from IPython import embed;embed()
         for i in range(self.instances):
             img = self.samples_mat['X'][:, :, :, i]
             label = self.samples_mat['Y'][i, :][0]
@@ -57,7 +59,7 @@ class Dataset():
 
 
 if __name__ == "__main__":
-    ds = Dataset('train')
+    ds = Dataset('test')
     ds = ds.load()
     gen = ds.instance_generator()
 
